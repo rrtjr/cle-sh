@@ -64,6 +64,21 @@ fig.savefig('results.png')
 - **Human-Readable Output**: Generates natural language explanations
 - **Professional Visualizations**: Creates publication-ready charts
 
+## Example Results
+
+CLE-SH generates comprehensive visualizations that provide insights into your model's behavior:
+
+### Linear Explainer Results
+![CLE-SH Analysis Results](docs/clesh_analysis_results.png)
+
+### Tree Explainer Results
+![CLE-SH Tree Explainer Results](docs/clesh_tree_explainer_results.png)
+
+These visualizations show:
+- **Top Significant Features**: Ranked by statistical importance with confidence intervals
+- **Univariate Pattern Types**: Distribution of linear, quadratic, and sigmoid relationships
+- **Feature Interactions**: Network of synergistic and antagonistic feature relationships
+
 ## Configuration
 
 ```python

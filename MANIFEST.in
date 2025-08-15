@@ -4,9 +4,9 @@ include pyproject.toml
 recursive-include clesh *.py
 recursive-include tests *.py
 recursive-include examples *.py
+recursive-include docs *.png
 exclude clesh/*_backup.py
 exclude *test*.py
-exclude *.png
 exclude *.png
 global-exclude __pycache__
 global-exclude *.py[co]
