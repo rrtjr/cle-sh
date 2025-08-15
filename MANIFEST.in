@@ -1,0 +1,13 @@
+include README.md
+include LICENSE
+include pyproject.toml
+recursive-include clesh *.py
+recursive-include tests *.py
+recursive-include examples *.py
+exclude clesh/*_backup.py
+exclude *test*.py
+exclude *.png
+exclude *.png
+global-exclude __pycache__
+global-exclude *.py[co]
+global-exclude *.egg-info
