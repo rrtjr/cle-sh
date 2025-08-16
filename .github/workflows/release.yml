@@ -25,6 +25,7 @@ jobs:
     - name: Set up environment
       run: |
         uv sync --dev
+        uv run --with ruff ruff --version
 
     - name: Run full test suite
       run: |
@@ -32,8 +33,8 @@ jobs:
 
     - name: Run linting
       run: |
-        uv run ruff check .
-        uv run ruff format --check .
+        uv run --with ruff ruff check .
+        uv run --with ruff ruff format --check .
 
   build:
     needs: test

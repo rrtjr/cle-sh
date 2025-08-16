@@ -26,14 +26,15 @@ jobs:
     - name: Set up environment
       run: |
         uv sync --dev
+        uv run --with ruff ruff --version
 
     - name: Run ruff linting
       run: |
-        uv run ruff check . --output-format=github
+        uv run --with ruff ruff check . --output-format=github
 
     - name: Run ruff formatting check
       run: |
-        uv run ruff format --check .
+        uv run --with ruff ruff format --check .
 
     - name: Check for security issues with bandit
       run: |
@@ -116,7 +117,6 @@ jobs:
 
     - name: Validate README and examples
       run: |
-        # Check that examples in README work
         if [ -f "examples/demo.py" ]; then
           echo "Testing demo script..."
           uv run python examples/demo.py || echo "Demo script had issues"
