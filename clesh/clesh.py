@@ -38,6 +38,9 @@ class CLESH:
         Legacy threshold parameter, retained for compatibility.
     max_interactions_per_feature : int, default=3
         Maximum number of interactions to analyze per feature.
+    normalize_interactions : bool, default=True
+        Whether to normalize interaction strength relative to prediction range.
+        Set to False to maintain strict absolute SHAP strength values.
     log_level : str, default="INFO"
         Logging level for analysis progress. Options: "DEBUG", "INFO", "WARNING", "ERROR".
     log_format : str, optional
@@ -59,6 +62,7 @@ class CLESH:
         candidate_num_max=20,
         interaction_threshold=0.01,
         max_interactions_per_feature=3,
+        normalize_interactions=True,
         log_level="INFO",
         log_format=None,
     ):
@@ -69,6 +73,7 @@ class CLESH:
         self.candidate_num_max = candidate_num_max
         self.interaction_threshold = interaction_threshold
         self.max_interactions_per_feature = max_interactions_per_feature
+        self.normalize_interactions = normalize_interactions
         self.results = {}
 
         # Configure logger
@@ -357,17 +362,64 @@ class CLESH:
 
                 group_list = [group_y for _, group_y in groups]
                 shapiro_ps = [stats.shapiro(g)[1] for g in group_list if len(g) > 2]
+                tukey_results = None
                 if all(p > 0.05 for p in shapiro_ps):
                     if len(group_list) == 2:
                         _, between_p = stats.ttest_ind(*group_list)
                     else:
                         _, between_p = stats.f_oneway(*group_list)
                         if between_p < self.p_univariate:
-                            _ = pairwise_tukeyhsd(y, x)
+                            tukey_result = pairwise_tukeyhsd(y, x)
+                            tukey_results = {
+                                "pairwise_comparisons": [],
+                                "summary": str(tukey_result),
+                            }
+                            for i in range(len(tukey_result.groupsunique)):
+                                for j in range(i + 1, len(tukey_result.groupsunique)):
+                                    group1 = tukey_result.groupsunique[i]
+                                    group2 = tukey_result.groupsunique[j]
+                                    idx = (
+                                        i * len(tukey_result.groupsunique)
+                                        + j
+                                        - ((i + 1) * (i + 2)) // 2
+                                        + i
+                                    )
+                                    if idx < len(tukey_result.pvalues):
+                                        tukey_results["pairwise_comparisons"].append(
+                                            {
+                                                "group1": group1,
+                                                "group2": group2,
+                                                "meandiff": tukey_result.meandiffs[idx],
+                                                "p_adj": tukey_result.pvalues[idx],
+                                                "lower": tukey_result.confint[idx][0],
+                                                "upper": tukey_result.confint[idx][1],
+                                                "reject": tukey_result.reject[idx],
+                                            }
+                                        )
                 else:
                     _, between_p = stats.kruskal(*group_list)
                     if between_p < self.p_univariate and len(group_list) > 2:
-                        pass
+                        from scipy.stats import ranksums
+
+                        unique_vals = sorted(groups.groups.keys())
+                        pairwise_comparisons = []
+                        for i in range(len(unique_vals)):
+                            for j in range(i + 1, len(unique_vals)):
+                                group1_data = groups.get_group(unique_vals[i])
+                                group2_data = groups.get_group(unique_vals[j])
+                                _, p_val = ranksums(group1_data, group2_data)
+                                pairwise_comparisons.append(
+                                    {
+                                        "group1": unique_vals[i],
+                                        "group2": unique_vals[j],
+                                        "p_value": p_val,
+                                        "test": "wilcoxon_rank_sum",
+                                    }
+                                )
+                        tukey_results = {
+                            "pairwise_comparisons": pairwise_comparisons,
+                            "summary": "Non-parametric pairwise comparisons using Wilcoxon rank-sum test",
+                        }
 
                 pattern_desc = (
                     f"{f_type.capitalize()} feature with significant differences between categories (p={between_p:.4f})"
@@ -379,6 +431,7 @@ class CLESH:
                     "pattern_description": pattern_desc,
                     "group_tests": group_tests,
                     "between_p": between_p,
+                    "tukey_results": tukey_results,
                 }
 
             elif f_type == "continuous":
@@ -415,6 +468,7 @@ class CLESH:
                     "pattern_description": pattern_desc,
                     "best_fit": info if fits else None,
                     "all_fits": fits,
+                    "tukey_results": None,  # Continuous features don't have Tukey tests
                 }
 
         self.results["pattern_analysis"] = pattern_analysis
@@ -541,20 +595,23 @@ class CLESH:
                             inter_type = "Synergistic" if mean_diff > 0 else "Antagonistic"
 
                             strength_raw = abs(mean_diff)
-                            all_predictions = np.concatenate([y_pred_low, y_pred_high])
-                            pred_range = np.max(all_predictions) - np.min(all_predictions)
 
-                            if pred_range > 0:
-                                strength = (strength_raw / pred_range) * 100
+                            if self.normalize_interactions:
+                                all_predictions = np.concatenate([y_pred_low, y_pred_high])
+                                pred_range = np.max(all_predictions) - np.min(all_predictions)
+
+                                if pred_range > 0:
+                                    strength = (strength_raw / pred_range) * 100
+                                else:
+                                    shap_magnitude = np.mean(np.abs(y_t))
+                                    strength = (
+                                        (strength_raw / shap_magnitude) * 100
+                                        if shap_magnitude > 0
+                                        else 1.0
+                                    )
+                                strength = max(strength, 0.01)
                             else:
-                                shap_magnitude = np.mean(np.abs(y_t))
-                                strength = (
-                                    (strength_raw / shap_magnitude) * 100
-                                    if shap_magnitude > 0
-                                    else 1.0
-                                )
-
-                            strength = max(strength, 0.01)
+                                strength = strength_raw
 
                             desc = f"{inter_type} interaction: High {inter} {'amplifies' if mean_diff > 0 else 'attenuates'} the effect of {target}"
                             interaction_results[key] = {

@@ -1,0 +1,115 @@
+name: Code Quality
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: "3.11"
+
+    - name: Install uv
+      uses: astral-sh/setup-uv@v3
+
+    - name: Set up environment
+      run: |
+        uv python install 3.11
+        uv sync --dev
+
+    - name: Run ruff linting
+      run: |
+        uv run ruff check . --output-format=github
+
+    - name: Run ruff formatting check
+      run: |
+        uv run ruff format --check .
+
+    - name: Check for security issues with bandit
+      run: |
+        uv add --dev bandit[toml]
+        uv run bandit -r clesh/ -f json -o bandit-report.json || true
+        uv run bandit -r clesh/
+
+  type-check:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: "3.11"
+
+    - name: Install uv
+      uses: astral-sh/setup-uv@v3
+
+    - name: Set up environment
+      run: |
+        uv python install 3.11
+        uv sync --dev
+        uv add --dev mypy types-setuptools
+
+    - name: Run mypy type checking
+      run: |
+        uv run mypy clesh/ --ignore-missing-imports || true
+
+  dependency-check:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: "3.11"
+
+    - name: Install uv
+      uses: actions/setup-uv@v3
+
+    - name: Check for dependency vulnerabilities
+      run: |
+        uv python install 3.11
+        uv sync --dev
+        uv add --dev safety
+        uv run safety check --json --output safety-report.json || true
+        uv run safety check
+
+  docs-check:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: "3.11"
+
+    - name: Install uv
+      uses: astral-sh/setup-uv@v3
+
+    - name: Set up environment
+      run: |
+        uv python install 3.11
+        uv sync --dev
+
+    - name: Check docstring coverage
+      run: |
+        uv add --dev interrogate
+        uv run interrogate clesh/ --verbose --fail-under=80 || true
+
+    - name: Validate README and examples
+      run: |
+        # Check that examples in README work
+        if [ -f "examples/demo.py" ]; then
+          echo "Testing demo script..."
+          uv run python examples/demo.py || echo "Demo script had issues"
+        fi

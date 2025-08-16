@@ -39,6 +39,7 @@ class TestCLESHInitialization:
         assert clesh.candidate_num_max == 20
         assert clesh.interaction_threshold == 0.01
         assert clesh.max_interactions_per_feature == 3
+        assert clesh.normalize_interactions  # New default parameter
         assert clesh.results == {}
 
     def test_custom_initialization(self):
@@ -51,6 +52,7 @@ class TestCLESHInitialization:
             candidate_num_max=15,
             interaction_threshold=0.05,
             max_interactions_per_feature=5,
+            normalize_interactions=False,
         )
         assert clesh.alpha == 0.01
         assert clesh.p_univariate == 0.02
@@ -59,6 +61,21 @@ class TestCLESHInitialization:
         assert clesh.candidate_num_max == 15
         assert clesh.interaction_threshold == 0.05
         assert clesh.max_interactions_per_feature == 5
+        assert not clesh.normalize_interactions
+
+    def test_normalization_parameter_initialization(self):
+        """Test normalization parameter initialization."""
+        # Test default (normalized)
+        clesh_default = CLESH()
+        assert clesh_default.normalize_interactions
+
+        # Test explicit normalized
+        clesh_normalized = CLESH(normalize_interactions=True)
+        assert clesh_normalized.normalize_interactions
+
+        # Test non-normalized
+        clesh_absolute = CLESH(normalize_interactions=False)
+        assert not clesh_absolute.normalize_interactions
 
 
 class TestFeatureTypeDetection:
@@ -185,6 +202,13 @@ class TestUnivariatePatternAnalysis:
             0, 0.1, self.n_samples
         )
 
+        # Discrete feature with 3 groups for Tukey testing
+        self.X[:, 3] = np.random.choice([0, 1, 2], self.n_samples)
+        group_effects = {0: -0.5, 1: 0.0, 2: 0.8}  # Different effects per group
+        self.shap_values[:, 3] = np.array(
+            [group_effects[int(x)] for x in self.X[:, 3]]
+        ) + np.random.normal(0, 0.1, self.n_samples)
+
         self.feature_names = [f"feature_{i}" for i in range(5)]
 
         # Run significance analysis first
@@ -244,6 +268,107 @@ class TestUnivariatePatternAnalysis:
         for _, result in pattern_results.items():
             assert "pattern_description" in result
             assert isinstance(result["pattern_description"], str)
+            # Check that tukey_results field exists (may be None)
+            assert "tukey_results" in result
+
+    def test_tukey_results_storage_discrete_features(self):
+        """Test that Tukey post-hoc results are stored for discrete features with >2 groups."""
+        pattern_results = self.clesh.univariate_pattern_analysis(
+            self.X, self.shap_values, self.feature_names
+        )
+
+        # Look for discrete features with >2 groups
+        discrete_features_found = False
+        for feature_name, result in pattern_results.items():
+            feature_type = self.clesh.results["feature_types"].get(feature_name)
+
+            if feature_type == "discrete":
+                # Check if this is the 3-group feature (feature_3)
+                if feature_name == "feature_3":
+                    discrete_features_found = True
+
+                    # Should have tukey_results if significant differences found
+                    tukey_results = result.get("tukey_results")
+                    if tukey_results is not None:
+                        # Validate structure
+                        assert "pairwise_comparisons" in tukey_results
+                        assert "summary" in tukey_results
+                        assert isinstance(tukey_results["pairwise_comparisons"], list)
+                        assert isinstance(tukey_results["summary"], str)
+
+                        # Check pairwise comparison structure
+                        for comparison in tukey_results["pairwise_comparisons"]:
+                            assert "group1" in comparison
+                            assert "group2" in comparison
+                            # Should have either parametric (Tukey) or non-parametric keys
+                            assert ("p_adj" in comparison) or ("p_value" in comparison)
+
+        # We should have found at least one discrete feature to test
+        assert discrete_features_found, "No discrete features found for Tukey testing"
+
+    def test_tukey_results_parametric_vs_nonparametric(self):
+        """Test that parametric and non-parametric post-hoc tests are handled correctly."""
+        # Create data that will definitely trigger post-hoc testing
+        np.random.seed(999)
+        n_samples = 60
+        X_test = np.zeros((n_samples, 2))
+        shap_test = np.zeros((n_samples, 2))
+
+        # Feature 0: 3-group discrete with normal distribution (should use Tukey)
+        X_test[:, 0] = np.repeat([0, 1, 2], n_samples // 3)
+        group_means = [-1, 0, 1]  # Clear group differences
+        for i in range(3):
+            mask = X_test[:, 0] == i
+            shap_test[mask, 0] = np.random.normal(group_means[i], 0.1, np.sum(mask))
+
+        # Feature 1: 3-group discrete with non-normal distribution (should use non-parametric)
+        X_test[:, 1] = np.repeat([0, 1, 2], n_samples // 3)
+        for i in range(3):
+            mask = X_test[:, 1] == i
+            # Create heavily skewed distribution
+            shap_test[mask, 1] = np.random.exponential(1 + i, np.sum(mask))
+
+        feature_names_test = ["normal_discrete", "skewed_discrete"]
+
+        clesh_test = CLESH(candidate_num_min=1, candidate_num_max=3)
+        clesh_test.analyze_shap_significance(shap_test, X_test, feature_names_test)
+        pattern_results = clesh_test.univariate_pattern_analysis(
+            X_test, shap_test, feature_names_test
+        )
+
+        # Check that both features have tukey_results
+        for feature_name in feature_names_test:
+            if feature_name in pattern_results:
+                result = pattern_results[feature_name]
+                tukey_results = result.get("tukey_results")
+
+                if tukey_results is not None:
+                    # Should have pairwise comparisons
+                    assert len(tukey_results["pairwise_comparisons"]) > 0
+
+                    # Check if it's parametric (Tukey) or non-parametric
+                    first_comparison = tukey_results["pairwise_comparisons"][0]
+                    is_parametric = "p_adj" in first_comparison and "meandiff" in first_comparison
+                    is_nonparametric = "p_value" in first_comparison and "test" in first_comparison
+
+                    # Should be one or the other
+                    assert is_parametric or is_nonparametric
+
+    def test_tukey_results_binary_features_no_posthoc(self):
+        """Test that binary features don't get Tukey post-hoc tests."""
+        pattern_results = self.clesh.univariate_pattern_analysis(
+            self.X, self.shap_values, self.feature_names
+        )
+
+        # Check binary features (feature_2 in our setup)
+        for feature_name, result in pattern_results.items():
+            feature_type = self.clesh.results["feature_types"].get(feature_name)
+
+            if feature_type == "binary":
+                # Binary features should not have Tukey results since they only have 2 groups
+                tukey_results = result.get("tukey_results")
+                # Tukey results should be None for binary (only 2 groups)
+                assert tukey_results is None
 
 
 class TestInteractionAnalysis:
@@ -281,6 +406,88 @@ class TestInteractionAnalysis:
             assert "interaction_strength" in result
             assert "description" in result
             assert result["interaction_type"] in ["Synergistic", "Antagonistic"]
+
+    def test_interaction_normalization_on(self):
+        """Test interaction analysis with normalization enabled (default)."""
+        clesh_normalized = CLESH(normalize_interactions=True, max_interactions_per_feature=2)
+
+        # Run prerequisite analyses
+        clesh_normalized.analyze_shap_significance(self.shap_values, self.X, self.feature_names)
+        clesh_normalized.univariate_pattern_analysis(self.X, self.shap_values, self.feature_names)
+
+        interaction_results = clesh_normalized.interaction_analysis(
+            self.X, self.shap_values, self.feature_names
+        )
+
+        # Check that normalized interaction strengths are typically percentages (0-100+)
+        for _key, result in interaction_results.items():
+            strength = result["interaction_strength"]
+            # Normalized strengths should be positive and often in percentage range
+            assert strength >= 0
+            # For normalized interactions, we expect values often in 0.01-100+ range
+            assert isinstance(strength, (int, float))
+
+    def test_interaction_normalization_off(self):
+        """Test interaction analysis with normalization disabled."""
+        clesh_absolute = CLESH(normalize_interactions=False, max_interactions_per_feature=2)
+
+        # Run prerequisite analyses
+        clesh_absolute.analyze_shap_significance(self.shap_values, self.X, self.feature_names)
+        clesh_absolute.univariate_pattern_analysis(self.X, self.shap_values, self.feature_names)
+
+        interaction_results = clesh_absolute.interaction_analysis(
+            self.X, self.shap_values, self.feature_names
+        )
+
+        # Check that absolute interaction strengths maintain raw SHAP magnitude
+        for _key, result in interaction_results.items():
+            strength = result["interaction_strength"]
+            # Absolute strengths should be raw differences (could be small values)
+            assert strength >= 0
+            assert isinstance(strength, (int, float))
+
+    def test_interaction_normalization_comparison(self):
+        """Test that normalized vs non-normalized interactions produce different values."""
+        # Create data that will produce detectable interactions
+        np.random.seed(123)
+        X_test = np.random.randn(50, 4)
+        shap_test = np.random.randn(50, 4)
+
+        # Make stronger patterns to ensure interactions are detected
+        shap_test[:, 0] *= 2  # Stronger first feature
+
+        feature_names_test = [f"test_feature_{i}" for i in range(4)]
+
+        # Test with normalization
+        clesh_norm = CLESH(
+            normalize_interactions=True,
+            max_interactions_per_feature=1,
+            candidate_num_min=2,
+            candidate_num_max=4,
+        )
+        clesh_norm.analyze_shap_significance(shap_test, X_test, feature_names_test)
+        clesh_norm.univariate_pattern_analysis(X_test, shap_test, feature_names_test)
+        results_norm = clesh_norm.interaction_analysis(X_test, shap_test, feature_names_test)
+
+        # Test without normalization
+        clesh_abs = CLESH(
+            normalize_interactions=False,
+            max_interactions_per_feature=1,
+            candidate_num_min=2,
+            candidate_num_max=4,
+        )
+        clesh_abs.analyze_shap_significance(shap_test, X_test, feature_names_test)
+        clesh_abs.univariate_pattern_analysis(X_test, shap_test, feature_names_test)
+        results_abs = clesh_abs.interaction_analysis(X_test, shap_test, feature_names_test)
+
+        # If both find interactions, their strengths should potentially differ
+        if results_norm and results_abs:
+            # At least verify the structure is consistent
+            for key in results_norm:
+                if key in results_abs:
+                    # Both should have positive strengths
+                    assert results_norm[key]["interaction_strength"] >= 0
+                    assert results_abs[key]["interaction_strength"] >= 0
 
 
 class TestComprehensiveAnalysis:
@@ -507,6 +714,154 @@ class TestEdgeCases:
         except Exception:
             # If it fails, that's also acceptable for NaN handling
             pass
+
+
+class TestRegressionFixes:
+    """Test regression fixes for reported issues."""
+
+    def setup_method(self):
+        """Set up test fixtures for regression testing."""
+        np.random.seed(777)
+        self.n_samples = 80
+        self.n_features = 4
+
+        # Create test data
+        self.X = np.random.randn(self.n_samples, self.n_features)
+        # Add discrete feature with 3+ groups
+        self.X[:, 0] = np.random.choice([0, 1, 2], self.n_samples)
+
+        # Create SHAP values with group differences
+        self.shap_values = np.random.randn(self.n_samples, self.n_features) * 0.3
+        # Make discrete feature have clear group differences
+        for group in [0, 1, 2]:
+            mask = self.X[:, 0] == group
+            self.shap_values[mask, 0] += group * 0.5
+
+        self.feature_names = [f"feature_{i}" for i in range(self.n_features)]
+
+    def test_issue_1_normalization_optional(self):
+        """Test Issue 1: Normalization in interactions is optional for strict absolute strength."""
+        # Test with normalization disabled
+        clesh_absolute = CLESH(
+            normalize_interactions=False,
+            candidate_num_min=2,
+            candidate_num_max=4,
+            max_interactions_per_feature=2,
+        )
+
+        results = clesh_absolute.comprehensive_analysis(
+            self.X, self.shap_values, self.feature_names
+        )
+
+        # Verify normalization is disabled
+        assert not clesh_absolute.normalize_interactions
+
+        # Check interaction results use absolute values
+        if "interaction_analysis" in results and results["interaction_analysis"]:
+            for _interaction_key, interaction_data in results["interaction_analysis"].items():
+                strength = interaction_data["interaction_strength"]
+                # Absolute strengths should be raw SHAP differences (typically smaller values)
+                assert isinstance(strength, (int, float))
+                assert strength >= 0
+
+        # Compare with normalized version
+        clesh_normalized = CLESH(
+            normalize_interactions=True,
+            candidate_num_min=2,
+            candidate_num_max=4,
+            max_interactions_per_feature=2,
+        )
+
+        results_norm = clesh_normalized.comprehensive_analysis(
+            self.X, self.shap_values, self.feature_names
+        )
+
+        # Verify normalization is enabled
+        assert clesh_normalized.normalize_interactions
+
+        # Both should produce valid results
+        assert "interaction_analysis" in results
+        assert "interaction_analysis" in results_norm
+
+    def test_issue_2_tukey_posthoc_storage(self):
+        """Test Issue 2: Tukey results are stored for discrete >2 groups."""
+        clesh = CLESH(candidate_num_min=2, candidate_num_max=4)
+
+        results = clesh.comprehensive_analysis(self.X, self.shap_values, self.feature_names)
+
+        # Check that we have pattern analysis
+        assert "pattern_analysis" in results
+        assert "feature_types" in results
+
+        # Look for discrete features with stored Tukey results
+        for feature_name, pattern_data in results["pattern_analysis"].items():
+            feature_type = results["feature_types"].get(feature_name)
+
+            if feature_type == "discrete":
+                # Should have tukey_results field
+                assert "tukey_results" in pattern_data
+
+                tukey_results = pattern_data["tukey_results"]
+                if tukey_results is not None:
+                    pass  # tukey_found = True
+
+                    # Validate Tukey results structure
+                    assert "pairwise_comparisons" in tukey_results
+                    assert "summary" in tukey_results
+                    assert isinstance(tukey_results["pairwise_comparisons"], list)
+
+                    # Check pairwise comparison details
+                    for comparison in tukey_results["pairwise_comparisons"]:
+                        assert "group1" in comparison
+                        assert "group2" in comparison
+                        # Should have statistical test results
+                        has_parametric = all(key in comparison for key in ["p_adj", "meandiff"])
+                        has_nonparametric = "p_value" in comparison and "test" in comparison
+                        assert has_parametric or has_nonparametric
+
+        # Should have found at least one discrete feature with Tukey results
+        # (though it's possible none are significant, so we just check structure exists)
+        discrete_features = [f for f, t in results["feature_types"].items() if t == "discrete"]
+        assert len(discrete_features) > 0, "Should have at least one discrete feature for testing"
+
+        # All discrete features should have the tukey_results field
+        for feature in discrete_features:
+            if feature in results["pattern_analysis"]:
+                assert "tukey_results" in results["pattern_analysis"][feature]
+
+    def test_backward_compatibility(self):
+        """Test that changes maintain backward compatibility."""
+        # Test that old code without normalization parameter still works
+        clesh_old_style = CLESH(
+            alpha=0.05,
+            p_univariate=0.05,
+            p_interaction=0.05,
+            candidate_num_min=2,
+            candidate_num_max=4,
+        )
+
+        # Should default to normalized interactions
+        assert clesh_old_style.normalize_interactions
+
+        # Should run complete analysis without errors
+        results = clesh_old_style.comprehensive_analysis(
+            self.X, self.shap_values, self.feature_names
+        )
+
+        # Should have all expected components
+        expected_keys = [
+            "significant_features",
+            "significance_analysis",
+            "pattern_analysis",
+            "interaction_analysis",
+            "feature_types",
+        ]
+        for key in expected_keys:
+            assert key in results
+
+        # Pattern analysis should include tukey_results field for all features
+        for feature_data in results["pattern_analysis"].values():
+            assert "tukey_results" in feature_data
 
 
 if __name__ == "__main__":

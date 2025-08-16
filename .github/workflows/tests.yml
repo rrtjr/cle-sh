@@ -1,0 +1,138 @@
+name: Tests
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+        python-version: ["3.9", "3.10", "3.11", "3.12"]
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Python ${{ matrix.python-version }}
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ matrix.python-version }}
+
+    - name: Install uv
+      uses: astral-sh/setup-uv@v3
+      with:
+        version: "latest"
+
+    - name: Set up environment
+      run: |
+        uv python install ${{ matrix.python-version }}
+        uv sync --dev
+
+    - name: Run linting
+      run: |
+        uv run ruff check .
+        uv run ruff format --check .
+
+    - name: Run tests with coverage
+      run: |
+        uv run pytest --cov=clesh --cov-report=xml --cov-report=term-missing tests/
+
+    - name: Upload coverage reports to Codecov
+      if: matrix.os == 'ubuntu-latest' && matrix.python-version == '3.11'
+      uses: codecov/codecov-action@v3
+      with:
+        token: ${{ secrets.CODECOV_TOKEN }}
+        files: ./coverage.xml
+        fail_ci_if_error: false
+
+  test-minimum-versions:
+    runs-on: ubuntu-latest
+    name: Test with minimum supported versions
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Python 3.9
+      uses: actions/setup-python@v4
+      with:
+        python-version: "3.9"
+
+    - name: Install uv
+      uses: astral-sh/setup-uv@v3
+
+    - name: Install minimum versions
+      run: |
+        uv python install 3.9
+        # Install minimum supported versions
+        uv add numpy==1.21.0 pandas==1.3.0 scipy==1.7.0 statsmodels==0.13.0 shap==0.41.0 loguru==0.6.0
+        uv add --dev pytest==6.0 pytest-cov==3.0 matplotlib==3.5.0 scikit-learn==1.0.0
+
+    - name: Run tests with minimum versions
+      run: |
+        uv run pytest tests/ -v
+
+  integration-test:
+    runs-on: ubuntu-latest
+    name: Integration tests with real data
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Python 3.11
+      uses: actions/setup-python@v4
+      with:
+        python-version: "3.11"
+
+    - name: Install uv
+      uses: astral-sh/setup-uv@v3
+
+    - name: Set up environment
+      run: |
+        uv python install 3.11
+        uv sync --dev
+
+    - name: Run integration tests
+      run: |
+        uv run pytest tests/ -m "integration" -v --tb=short
+
+    - name: Run slow tests
+      run: |
+        uv run pytest tests/ -m "slow" -v --tb=short
+
+  regression-test:
+    runs-on: ubuntu-latest
+    name: Regression tests for recent fixes
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Python 3.11
+      uses: actions/setup-python@v4
+      with:
+        python-version: "3.11"
+
+    - name: Install uv
+      uses: astral-sh/setup-uv@v3
+
+    - name: Set up environment
+      run: |
+        uv python install 3.11
+        uv sync --dev
+
+    - name: Run regression tests
+      run: |
+        uv run pytest tests/test_clesh.py::TestRegressionFixes -v --tb=short
+
+    - name: Test normalization functionality
+      run: |
+        uv run pytest tests/test_clesh.py -k "normalization" -v
+
+    - name: Test Tukey post-hoc functionality
+      run: |
+        uv run pytest tests/test_clesh.py -k "tukey" -v
