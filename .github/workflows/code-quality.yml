@@ -24,7 +24,7 @@ jobs:
 
     - name: Set up environment
       run: |
-        uv venv
+        uv venv --python $(which python)
         uv sync --dev
 
     - name: Run ruff linting
@@ -57,7 +57,7 @@ jobs:
 
     - name: Set up environment
       run: |
-        uv venv
+        uv venv --python $(which python)
         uv sync --dev
 
     - name: Run mypy type checking
@@ -81,7 +81,7 @@ jobs:
 
     - name: Check for dependency vulnerabilities
       run: |
-        uv venv
+        uv venv --python $(which python)
         uv sync --dev
         uv run safety check --json > safety-report.json
         uv run safety check
@@ -103,7 +103,7 @@ jobs:
 
     - name: Set up environment
       run: |
-        uv venv
+        uv venv --python $(which python)
         uv sync --dev
 
     - name: Check docstring coverage
