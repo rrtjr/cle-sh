@@ -64,6 +64,11 @@ jobs:
       with:
         python-version: "3.9"
 
+    - name: Install system dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y llvm-11-dev
+
     - name: Install uv
       uses: astral-sh/setup-uv@v3
       with:
@@ -72,8 +77,8 @@ jobs:
 
     - name: Install minimum versions
       run: |
-        uv add numpy==1.21.0 pandas==1.3.0 scipy==1.7.0 statsmodels==0.13.0 shap==0.41.0 loguru==0.6.0
-        uv add --dev pytest==6.0 pytest-cov==3.0 matplotlib==3.5.0 scikit-learn==1.0.0
+        uv add numpy==1.22.0 pandas==1.4.0 scipy==1.8.0 statsmodels==0.13.5 shap==0.42.0 loguru==0.6.0
+        uv add --dev pytest==7.0 pytest-cov==4.0 matplotlib==3.6.0 scikit-learn==1.1.0
 
     - name: Run tests with minimum versions
       run: |
