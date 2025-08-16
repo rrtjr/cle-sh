@@ -607,8 +607,8 @@ class TestRealDataIntegration:
         model.fit(X_scaled, y)
 
         # Use PermutationExplainer (model-agnostic)
-        explainer = shap.PermutationExplainer(model.predict_proba, X_scaled[:20])
-        shap_values = explainer.shap_values(X_scaled[:10])  # Very small sample
+        explainer = shap.PermutationExplainer(model.predict_proba, X_scaled)
+        shap_values = explainer.shap_values(X_scaled)  # Use full dataset
 
         # Handle PermutationExplainer output (3D for binary classification)
         if len(shap_values.shape) == 3:
@@ -618,7 +618,7 @@ class TestRealDataIntegration:
 
         # Test CLE-SH analysis
         clesh = CLESH(alpha=0.3, candidate_num_min=2, candidate_num_max=4)
-        results = clesh.comprehensive_analysis(X_scaled[:10], shap_vals_class1, feature_names)
+        results = clesh.comprehensive_analysis(X_scaled, shap_vals_class1, feature_names)
 
         # Basic validation
         assert len(results["significant_features"]) >= 2

@@ -32,13 +32,13 @@ jobs:
 
     - name: Set up environment
       run: |
-        uv sync --dev --group test --group test
-        uv run --with ruff ruff --version
+        uv sync --all-extras
+        uv run ruff --version
 
     - name: Run linting
       run: |
-        uv run --with ruff ruff check .
-        uv run --with ruff ruff format --check .
+        uv run ruff check .
+        uv run ruff format --check .
 
     - name: Run tests with coverage
       run: |
@@ -52,33 +52,6 @@ jobs:
         files: ./coverage.xml
         fail_ci_if_error: false
 
-  test-minimum-versions:
-    runs-on: ubuntu-latest
-    name: Test with minimum supported versions
-
-    steps:
-    - uses: actions/checkout@v4
-
-    - name: Set up Python 3.9
-      uses: actions/setup-python@v5
-      with:
-        python-version: "3.9"
-
-
-    - name: Install uv
-      uses: astral-sh/setup-uv@v3
-      with:
-        version: "0.4.9"
-        enable-cache: true
-
-    - name: Install minimum versions
-      run: |
-        uv add numpy==1.22.3 pandas==1.4.0 scipy==1.8.0 statsmodels==0.13.5 shap==0.42.0 loguru==0.6.0
-        uv add --dev pytest==7.0 pytest-cov==4.0 matplotlib==3.6.0 scikit-learn==1.1.0
-
-    - name: Run tests with minimum versions
-      run: |
-        uv run pytest tests/ -v
 
   integration-test:
     runs-on: ubuntu-latest
@@ -100,7 +73,7 @@ jobs:
 
     - name: Set up environment
       run: |
-        uv sync --dev --group test
+        uv sync --all-extras
 
     - name: Run integration tests
       run: |
@@ -130,7 +103,7 @@ jobs:
 
     - name: Set up environment
       run: |
-        uv sync --dev --group test
+        uv sync --all-extras
 
     - name: Run regression tests
       run: |

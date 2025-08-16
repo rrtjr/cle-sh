@@ -175,7 +175,11 @@ class CLESH:
             if p_shap1 > 0.05 and p_shap2 > 0.05:
                 t_stat, p_val = stats.ttest_rel(group1, group2, alternative="greater")
             else:
-                t_stat, p_val = stats.wilcoxon(group1 - group2, alternative="greater")
+                try:
+                    t_stat, p_val = stats.wilcoxon(group1 - group2, alternative="greater")
+                except ValueError:
+                    # Handle case where all differences are zero (perfectly correlated features)
+                    p_val = 1.0  # No significant difference
 
             p_values.append(p_val)
 

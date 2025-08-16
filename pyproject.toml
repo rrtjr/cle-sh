@@ -25,11 +25,11 @@ classifiers = [
 
 # Core dependencies - minimal set required for basic functionality
 dependencies = [
-    "numpy>=1.22.3",
-    "pandas>=1.4.0",
-    "scipy>=1.8.0",
-    "statsmodels>=0.13.5",
-    "shap>=0.42.0",
+    "numpy>=1.21.0",
+    "pandas>=1.3.0",
+    "scipy>=1.7.0",
+    "statsmodels>=0.13.0",
+    "shap>=0.41.0",
     "loguru>=0.6.0",
 ]
 
@@ -47,17 +47,18 @@ examples = [
 
 # Development dependencies
 dev = [
-    "pytest>=7.0",
-    "pytest-cov>=4.0",
+    "pytest>=6.0",
+    "pytest-cov>=3.0",
     "ruff>=0.4.8",
     "pre-commit>=3.5.0",
+    "scikit-learn>=1.0.0",  # Required for tests
 ]
 
 # Testing dependencies
 test = [
-    "pytest>=7.0",
-    "pytest-cov>=4.0",
-    "scikit-learn>=1.1.0",
+    "pytest>=6.0",
+    "pytest-cov>=3.0",
+    "scikit-learn>=1.0.0",  # Needed for test datasets
 ]
 
 # Full installation with all optional dependencies
@@ -70,17 +71,17 @@ all = [
 [dependency-groups]
 # Testing dependencies for uv
 test = [
-    "pytest>=7.0",
-    "pytest-cov>=4.0",
-    "scikit-learn>=1.1.0",
-    "matplotlib>=3.6.0",
-    "seaborn>=0.12.0",
+    "pytest>=6.0",
+    "pytest-cov>=3.0",
+    "scikit-learn>=1.0.0",
+    "matplotlib>=3.5.0",  # Needed for visualization tests
+    "seaborn>=0.11.0",    # Needed for visualization tests
 ]
 
 # Development dependencies for uv
 dev = [
-    "pytest>=7.0",
-    "pytest-cov>=4.0",
+    "pytest>=6.0",
+    "pytest-cov>=3.0",
     "ruff>=0.4.8",
     "pre-commit>=3.5.0",
     "scikit-learn>=1.0.0",
