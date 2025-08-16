@@ -73,7 +73,7 @@ jobs:
 
     - name: Install minimum versions
       run: |
-        uv add numpy==1.22.0 pandas==1.4.0 scipy==1.8.0 statsmodels==0.13.5 shap==0.42.0 loguru==0.6.0
+        uv add numpy==1.22.3 pandas==1.4.0 scipy==1.8.0 statsmodels==0.13.5 shap==0.42.0 loguru==0.6.0
         uv add --dev pytest==7.0 pytest-cov==4.0 matplotlib==3.6.0 scikit-learn==1.1.0
 
     - name: Run tests with minimum versions

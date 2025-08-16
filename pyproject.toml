@@ -25,7 +25,7 @@ classifiers = [
 
 # Core dependencies - minimal set required for basic functionality
 dependencies = [
-    "numpy>=1.22.0",
+    "numpy>=1.22.3",
     "pandas>=1.4.0",
     "scipy>=1.8.0",
     "statsmodels>=0.13.5",
