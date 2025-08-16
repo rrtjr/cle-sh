@@ -31,6 +31,7 @@ dependencies = [
     "statsmodels>=0.13.0",
     "shap>=0.41.0",
     "loguru>=0.6.0",
+    "scikit-learn>=1.5.0",
 ]
 
 [project.optional-dependencies]
@@ -42,7 +43,7 @@ viz = [
 
 # Example and demo dependencies
 examples = [
-    "scikit-learn>=1.0.0",
+    "scikit-learn>=1.5.0",
 ]
 
 # Development dependencies
@@ -51,21 +52,21 @@ dev = [
     "pytest-cov>=3.0",
     "ruff>=0.4.8",
     "pre-commit>=3.5.0",
-    "scikit-learn>=1.0.0",  # Required for tests
+    "scikit-learn>=1.5.0",  # Required for tests
 ]
 
 # Testing dependencies
 test = [
     "pytest>=6.0",
     "pytest-cov>=3.0",
-    "scikit-learn>=1.0.0",  # Needed for test datasets
+    "scikit-learn>=1.5.0",  # Needed for test datasets
 ]
 
 # Full installation with all optional dependencies
 all = [
     "matplotlib>=3.7.0",
     "seaborn>=0.11.0",
-    "scikit-learn>=1.0.0",
+    "scikit-learn>=1.5.0",
 ]
 
 [dependency-groups]
@@ -73,7 +74,7 @@ all = [
 test = [
     "pytest>=6.0",
     "pytest-cov>=3.0",
-    "scikit-learn>=1.0.0",
+    "scikit-learn>=1.5.0",
     "matplotlib>=3.7.0",  # Needed for visualization tests
     "seaborn>=0.11.0",    # Needed for visualization tests
 ]
@@ -84,7 +85,7 @@ dev = [
     "pytest-cov>=3.0",
     "ruff>=0.4.8",
     "pre-commit>=3.5.0",
-    "scikit-learn>=1.0.0",
+    "scikit-learn>=1.5.0",
     "matplotlib>=3.7.0",
     "seaborn>=0.11.0",
 ]
