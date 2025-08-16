@@ -87,7 +87,7 @@ jobs:
       run: |
         uv sync --dev
         uv add --dev safety
-        uv run safety check --json --output safety-report.json || true
+        uv run safety check --json > safety-report.json || true
         uv run safety check
 
   docs-check:
