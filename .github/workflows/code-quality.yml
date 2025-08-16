@@ -87,8 +87,8 @@ jobs:
       run: |
         uv sync --dev
         uv add --dev safety
-        uv run safety check --json > safety-report.json || true
-        uv run safety check
+        uv run safety scan --json > safety-report.json || true
+        uv run safety scan
 
   docs-check:
     runs-on: ubuntu-latest
