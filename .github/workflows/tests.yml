@@ -42,7 +42,7 @@ jobs:
 
     - name: Run tests with coverage
       run: |
-        uv run pytest --cov=clesh --cov-report=xml --cov-report=term-missing tests/
+        uv run --with pytest --with pytest-cov pytest --cov=clesh --cov-report=xml --cov-report=term-missing tests/
 
     - name: Upload coverage reports to Codecov
       if: matrix.os == 'ubuntu-latest' && matrix.python-version == '3.11'
@@ -82,7 +82,7 @@ jobs:
 
     - name: Run tests with minimum versions
       run: |
-        uv run pytest tests/ -v
+        uv run --with pytest pytest tests/ -v
 
   integration-test:
     runs-on: ubuntu-latest
@@ -108,11 +108,11 @@ jobs:
 
     - name: Run integration tests
       run: |
-        uv run pytest tests/ -m "integration" -v --tb=short
+        uv run --with pytest pytest tests/ -m "integration" -v --tb=short
 
     - name: Run slow tests
       run: |
-        uv run pytest tests/ -m "slow" -v --tb=short
+        uv run --with pytest pytest tests/ -m "slow" -v --tb=short
 
   regression-test:
     runs-on: ubuntu-latest
@@ -138,12 +138,12 @@ jobs:
 
     - name: Run regression tests
       run: |
-        uv run pytest tests/test_clesh.py::TestRegressionFixes -v --tb=short
+        uv run --with pytest pytest tests/test_clesh.py::TestRegressionFixes -v --tb=short
 
     - name: Test normalization functionality
       run: |
-        uv run pytest tests/test_clesh.py -k "normalization" -v
+        uv run --with pytest pytest tests/test_clesh.py -k "normalization" -v
 
     - name: Test Tukey post-hoc functionality
       run: |
-        uv run pytest tests/test_clesh.py -k "tukey" -v
+        uv run --with pytest pytest tests/test_clesh.py -k "tukey" -v
