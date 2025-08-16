@@ -21,10 +21,10 @@ jobs:
       uses: astral-sh/setup-uv@v3
       with:
         version: "0.4.9"
+        enable-cache: true
 
     - name: Set up environment
       run: |
-        uv python install 3.12
         uv sync --dev
 
     - name: Run ruff linting
@@ -55,10 +55,10 @@ jobs:
       uses: astral-sh/setup-uv@v3
       with:
         version: "0.4.9"
+        enable-cache: true
 
     - name: Set up environment
       run: |
-        uv python install 3.12
         uv sync --dev
 
     - name: Run mypy type checking
@@ -80,10 +80,10 @@ jobs:
       uses: astral-sh/setup-uv@v3
       with:
         version: "0.4.9"
+        enable-cache: true
 
     - name: Check for dependency vulnerabilities
       run: |
-        uv python install 3.12
         uv sync --dev
         uv add --dev safety
         uv run safety check --json --output safety-report.json || true
@@ -103,10 +103,10 @@ jobs:
       uses: astral-sh/setup-uv@v3
       with:
         version: "0.4.9"
+        enable-cache: true
 
     - name: Set up environment
       run: |
-        uv python install 3.12
         uv sync --dev
 
     - name: Check docstring coverage
