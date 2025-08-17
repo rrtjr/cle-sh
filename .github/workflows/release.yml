@@ -24,7 +24,7 @@ jobs:
 
     - name: Set up environment
       run: |
-        uv sync --dev
+        uv sync --all-extras
         uv run --with ruff ruff --version
 
     - name: Run full test suite
@@ -52,6 +52,10 @@ jobs:
       with:
         version: "0.4.9"
         enable-cache: true
+
+    - name: Set up environment
+      run: |
+        uv sync --all-extras
 
     - name: Build package
       run: |
